@@ -57,7 +57,7 @@ flags.DEFINE_string("test_out_fp", "", "Write Test Prediction Data")
 
 flags.DEFINE_string("out_file", "", "Write inference data to the specified file")
 flags.DEFINE_string("in_file", "", "Input file to be linked. With one document in a single line")
-flags.DEFINE_string("contains_ner", False, "Input comes with recognized mentions so don't perform NER.")
+flags.DEFINE_boolean("contains_ner", False, "Input comes with recognized mentions so don't perform NER.")
 flags.DEFINE_string("spacy", False, "Use spacy document preprocessing instead of ccg_nlpy.")
 
 FLAGS = flags.FLAGS
@@ -89,7 +89,8 @@ def main(_):
                              strict_context=FLAGS.strict_context,
                              pretrain_wordembed=FLAGS.pretrain_wordembed,
                              coherence=FLAGS.coherence,
-                             spacy_doc_processing=FLAGS.spacy)
+                             spacy_doc_processing=FLAGS.spacy,
+                             contains_ner=FLAGS.contains_ner)
     model_mode = 'inference'
 
     if FLAGS.out_file:
@@ -105,7 +106,7 @@ def main(_):
             if line and (line[-1].isalnum() or line[-1] == "]"):
                 print("Add punctuation to end of line.")
                 line += " ."
-            reader.initialize_for_doc(line, FLAGS.contains_ner)
+            reader.initialize_for_doc(line)
             if not FLAGS.spacy:
                 docta = reader.ccgdoc
             if len(reader.ner_cons_list) > 0:
@@ -175,7 +176,7 @@ def main(_):
                                 print("Predicted Entity Types : {}".format(predTypes))
                                 print("\n")
                                 mentionnum += 1
-                        if FLAGS.spacy:
+                        if FLAGS.spacy or FLAGS.contains_ner:
                             cons_list = reader.ner_cons_list
 
                             # Compute the character start and end offset for each mention

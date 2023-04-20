@@ -31,25 +31,45 @@ Build the docker image with
 
 Run the docker container with
 
-    docker run -it -v <data_directory>/neural-el_resources:/data:ro -v <results_directory>:/results neural-el-gupta
+    docker run -it -v <data_directory>/neural-el_resources:/data -v <results_directory>:/results neural-el-gupta
 
 Within the docker container run `make help` for additional information.
 
-To link benchmark entities you only need to run `make link_benchmark`. This assumes benchmark articles are stored in
- the expected format in the file `<data_directory>/neural-el_resources/articles.txt`.
+To link benchmark entities you only need to run
+
+    make link_benchmark INPUT_FILE=<benchmark_articles_file> OUTPUT_FILE=<linking_results_file>
+
+This assumes benchmark articles are stored in the expected format in `<benchmark_articles_file>`.
  To get benchmark articles into Neural EL's expected input format use ELEVANT's `write_articles.py` script
- ([see here](https://github.com/ad-freiburg/elevant/blob/master/write_articles.py)) with the
-  following options:
+ ([see here](https://github.com/ad-freiburg/elevant/blob/master/write_articles.py)) with the following options:
 
-    python3 write_articles.py --output_file <data_directory>/neural-el_resources/articles.txt --one_article_per_line -b <benchmark_name>
+    python3 write_articles.py --output_file <benchmark_articles_file> --one_article_per_line -b <benchmark_name>
 
-The linking results are written to `<results_directory>/linked_articles.jsonl` in
+Add the option `--print_ner_groundtruth` to include ground truth NER spans in the input for Neural EL. In that case,
+ run `make disambiguate_benchmark` instead of `make link_benchmark`. Neural EL will then use the given ground truth NER
+ spans and perform only the disambiguation task instead of both the recognition and disambiguation task.
+
+The linking results are written to `<linking_results_file>` in
 [ELEVANT's simple-jsonl format](https://github.com/ad-freiburg/elevant/blob/master/docs/link_benchmark_articles.md#linking-results-in-a-simple-jsonl-format).
 
 NOTE: RAM requirements currently depend on the number of articles to be linked. For 40 benchmark articles, Neural EL
- requires almost 70GB of RAM. If you don't have enough RAM available, split `articles.txt` into several files and run
- `neural_el.py` for each file separately (simply adjust the link_benchmark target in the Makefile).
+ requires almost 70GB of RAM. If you don't have enough RAM available, split `<benchmark_articles_file>` into several
+ files and run `neural_el.py` for each file separately (simply adjust the link_benchmark target in the Makefile). You
+ can do this with
+
+    make split_articles INPUT_FILE=<benchmark_articles_file> SPLIT_SIZE=40
+
+ which will write the resulting files to the directory `<benchmark_articles_file>.split` with 40 articles per file. Then
+ run
+
+    make link_split_benchmark INPUT_FILE=<benchmark_articles_file>.split OUTPUT_FILE=<linking_results_file>
+
+ to link all article splits one after another **or alternatively**
+
+    make disambiguate_split_benchmark INPUT_FILE=<benchmark_articles_file>.split OUTPUT_FILE=<linking_results_file>
+
+ to disambiguate all article splits.
 
 Within ELEVANT, the linking results can be converted to ELEVANT's internal format with
 
-    python3 link_benchmark_entities.py neural-el -pfile <results_directory>/linked_articles.jsonl -pformat simple-jsonl -pname neural-el -b <benchmark_name>
+    python3 link_benchmark_entities.py "Neural EL" -pfile <linking_results_file> -pformat simple-jsonl -pname "Neural EL" -b <benchmark_name>

@@ -16,8 +16,9 @@ end_word = "<eos>"
 class InferenceReader(object):
     def __init__(self, config, vocabloader,
                  num_cands, batch_size, strict_context=True,
-                 pretrain_wordembed=True, coherence=True, spacy_doc_processing=False):
+                 pretrain_wordembed=True, coherence=True, spacy_doc_processing=False, contains_ner=False):
         self.spacy_doc_processing = spacy_doc_processing
+        self.contains_ner = contains_ner
         if self.spacy_doc_processing:
             self.nlp = spacy.load("en_core_web_lg")
         else:
@@ -71,10 +72,10 @@ class InferenceReader(object):
 
   #*******************      END __init__      *********************************
 
-    def initialize_for_doc(self, doc, contains_ner):
+    def initialize_for_doc(self, doc):
         print("[#] Loading document '%s [...]' and preprocessing ... " % doc[:20])
         ner_spans = None
-        if contains_ner:
+        if self.contains_ner:
             ner_spans, doc = self.get_ner_spans(doc)
         self.processTestDoc(doc, ner_spans)
         self.mention_lines = self.convertSent2NerToMentionLines()
@@ -108,21 +109,37 @@ class InferenceReader(object):
 
     def get_ner_dict(self, ner_spans):
         ner_list = []
+        if self.ccgdoc:
+            token_char_offsets = self.ccgdoc.get_token_char_offsets
         for ner_span in ner_spans:
-            start_tok_idx = self.get_token_idx(ner_span[0], self.spacy_doc)
-            end_tok_idx = self.get_token_idx(ner_span[1], self.spacy_doc)
+            if self.spacy_doc_processing:
+                start_tok_idx = self.get_token_idx(ner_span[0], self.spacy_doc)
+                end_tok_idx = self.get_token_idx(ner_span[1], self.spacy_doc)
+            else:
+                start_tok_idx = self.get_ccgdoc_token_idx(ner_span[0], token_char_offsets)
+                end_tok_idx = self.get_ccgdoc_token_idx(ner_span[1], token_char_offsets)
 
             ner_dict = dict()
             ner_dict['score'] = 1.0
             ner_dict['start'] = start_tok_idx
             ner_dict['end'] = end_tok_idx
-            ner_dict['tokens'] = self.spacy_doc.text[ner_span[0]:ner_span[1]]
+            if self.spacy_doc_processing:
+                ner_dict['tokens'] = self.spacy_doc.text[ner_span[0]:ner_span[1]]
+            else:
+                ner_dict['tokens'] = self.ccgdoc.get_text[ner_span[0]:ner_span[1]]
             ner_list.append(ner_dict)
         return ner_list
 
     def get_token_idx(self, offset, doc):
         for idx, token in enumerate(doc):
             if offset < token.idx + len(token.text):
+                return idx
+
+    def get_ccgdoc_token_idx(self, offset, token_char_offsets):
+        for idx, token_char_offset in enumerate(token_char_offsets):
+            if offset < token_char_offset[1]:
+                # The end token index returned by ccg_nlpy is the token idx + 1, e.g. for "Australia", the start
+                # token would be 0, the end token 1. Therefore use < instead of <=. Same in get_token_idx
                 return idx
 
     def get_vector(self, word):
