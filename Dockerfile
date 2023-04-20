@@ -10,6 +10,8 @@ RUN python3 -m pip install --upgrade pip
 COPY ./ /home/
 RUN pip3 install -r /home/requirements.txt
 RUN python3 -m spacy download en_core_web_lg
+# Enable Makefile target autocompletion
+RUN echo "complete -W \"\`grep -oE '^[a-zA-Z0-9_.-]+:([^=]|$)' ?akefile | sed 's/[^a-zA-Z0-9_.-]*$//'\`\" make" >> ~/.bashrc
 
 ENTRYPOINT /bin/bash
 WORKDIR /home/
